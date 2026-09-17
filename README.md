@@ -214,3 +214,108 @@ Results: 5 chunks retrieved
 | Relevance %                     | Human-readable conversion: `(1 - distance / 2) * 100`                                  |
 | `doc.metadata`                  | Each result carries its source filename and page number from the original PDF           |
 | Score threshold (preview)       | Query 2 shows why low-relevance results need filtering — used in Task 3's filter node   |
+
+---
+
+### Task 3 — LangGraph Pipeline (`3_langgraph_pipeline.py`)
+
+The full graph ran end-to-end: `START → retrieve → filter → generate → END`
+
+Configuration used:
+
+| Parameter       | Value                                  |
+|-----------------|----------------------------------------|
+| Top-K           | 10                                     |
+| Score threshold | distance < 1.0 (> 50% relevance)       |
+| Embedding model | sentence-transformers/all-MiniLM-L6-v2 |
+
+---
+
+**Query 1:** `"What is multi-head attention?"` — filter PASSED (3 docs kept)
+
+```
+[Node 1: RETRIEVE]
+  Query     : What is multi-head attention?
+  Retrieved : 10 documents
+    #1   distance=0.8108   relevance=59.5%   page=3
+    #2   distance=0.8778   relevance=56.1%   page=5
+    #3   distance=0.9963   relevance=50.2%   page=5
+    #4   distance=1.0268   relevance=48.7%   page=13
+    ...
+    #10  distance=1.2007   relevance=40.0%   page=3
+
+[Node 2: FILTER]
+  Threshold : distance < 1.0  (relevance > 50.0%)
+  KEEP  distance=0.8108   relevance=59.5%   page=3
+  KEEP  distance=0.8778   relevance=56.1%   page=5
+  KEEP  distance=0.9963   relevance=50.2%   page=5
+  DROP  distance=1.0268   relevance=48.7%   page=13
+  DROP  ... (7 more dropped)
+
+  Kept   : 3 documents
+  Dropped: 7 documents
+
+[Node 3: GENERATE]
+  Context docs : 3
+  Context sent to LLM (Page 3):
+    "An attention function can be described as mapping a query and a set of
+     key-value pairs to an output, where the query, keys, values, and output
+     are all vectors..."
+
+  Context sent to LLM (Page 5):
+    "MultiHead(Q,K,V) = Concat(head_1,...,head_h) W^O
+     where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)
+     In this work we employ h = 8 parallel attention layers, or heads..."
+```
+
+---
+
+**Query 2:** `"What optimizer was used for training?"` — filter FAILED (0 docs kept)
+
+```
+[Node 1: RETRIEVE]
+  Query     : What optimizer was used for training?
+  Retrieved : 10 documents
+    #1   distance=1.1650   relevance=41.8%   page=7
+    #2   distance=1.3348   relevance=33.3%   page=7
+    ...
+    #10  distance=1.4515   relevance=27.4%   page=11
+
+[Node 2: FILTER]
+  Threshold : distance < 1.0  (relevance > 50.0%)
+  DROP  (all 10 documents — best score was only 41.8%)
+
+  Kept   : 0 documents
+  Dropped: 10 documents
+
+[Node 3: GENERATE]
+  No relevant documents found above the relevance threshold.
+```
+
+> This is correct and expected. The paper does not use the word "optimizer" —
+> it refers to it as "Adam" and "training regime". The filter node correctly
+> rejected all low-quality results rather than sending noisy context to the LLM.
+
+---
+
+**Pipeline summary across both queries:**
+
+| Query                           | Retrieved | Kept | Dropped | Outcome             |
+|---------------------------------|-----------|------|---------|---------------------|
+| "What is multi-head attention?" | 10        | 3    | 7       | Context sent to LLM |
+| "What optimizer was used?"      | 10        | 0    | 10      | Correctly rejected  |
+
+---
+
+**Concepts covered:**
+
+| Concept             | Description                                                                                 |
+|---------------------|---------------------------------------------------------------------------------------------|
+| `RAGState`          | A `TypedDict` shared across all nodes — each node reads from and writes to it               |
+| `StateGraph`        | The LangGraph graph builder — nodes and edges are registered before compiling               |
+| `add_node()`        | Registers a Python function as a named processing step in the graph                        |
+| `add_edge()`        | Defines execution order — `START → retrieve → filter → generate → END`                     |
+| `graph.compile()`   | Validates the graph structure and returns a runnable `app` object                           |
+| `app.invoke(state)` | Executes the full graph, passing state automatically between nodes                          |
+| Score threshold     | `distance < 1.0` keeps only docs above 50% relevance — prevents noisy context reaching LLM |
+| Fallback behavior   | When 0 docs pass the filter, generate node returns a graceful message instead of crashing   |

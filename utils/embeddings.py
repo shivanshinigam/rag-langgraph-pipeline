@@ -1,34 +1,26 @@
 """
 utils/embeddings.py
 
-Shared embedding model setup.
-All scripts import from here so we always use the same embedding model.
-Changing the model in ONE place updates the whole pipeline.
+Shared embedding model setup — using HuggingFace sentence-transformers.
+Runs 100% LOCALLY. No API key required!
+
+Model: all-MiniLM-L6-v2
+  - Lightweight and fast
+  - Produces 384-dimensional vectors
+  - Great for semantic similarity tasks
 """
 
-import os
-from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
-
-load_dotenv()
+from langchain_huggingface import HuggingFaceEmbeddings
 
 
-def get_embedding_model() -> OpenAIEmbeddings:
+def get_embedding_model() -> HuggingFaceEmbeddings:
     """
-    Returns a configured OpenAI embedding model.
-
-    Model: text-embedding-3-small
-      - Fast, cheap, and very good quality
-      - Produces 1536-dimensional vectors
+    Returns a local HuggingFace embedding model.
+    First run will download the model (~90MB) from HuggingFace Hub.
+    Subsequent runs use the cached version — no internet needed.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY not found!\n"
-            "Make sure you copied .env.example to .env and filled in your API key."
-        )
-
-    return OpenAIEmbeddings(
-        model="text-embedding-3-small",
-        openai_api_key=api_key,
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},   # use "cuda" if you have a GPU
+        encode_kwargs={"normalize_embeddings": True},  # normalize for cosine similarity
     )

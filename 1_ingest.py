@@ -5,7 +5,7 @@ HOW IT WORKS:
   1. Scan the /pdfs folder for all .pdf files
   2. Load each PDF page-by-page using PyPDFLoader
   3. Split the pages into smaller overlapping chunks (RecursiveCharacterTextSplitter)
-  4. Embed each chunk using OpenAI text-embedding-3-small
+  4. Embed each chunk using HuggingFace all-MiniLM-L6-v2 (local, no API key needed!)
   5. Store all embeddings in a local ChromaDB vector store
 
 RUN:

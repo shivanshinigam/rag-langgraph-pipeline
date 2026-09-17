@@ -1,9 +1,10 @@
 langchain
 langchain-community
-langchain-openai
+langchain-huggingface
 langchain-chroma
 chromadb
 pypdf
 python-dotenv
 langgraph
-tiktoken
+sentence-transformers
+torch

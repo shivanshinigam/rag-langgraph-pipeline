@@ -440,20 +440,4 @@ all-MiniLM-L6-v2 distance ranges:
 | `graph.compile()` | Validates and locks the graph into a runnable `app` |
 | `app.invoke(state)` | Executes the full graph from start to end |
 
----
 
-## What's Next
-
-- [ ] Add a **conditional edge** — retry with a lower threshold if 0 docs pass
-- [ ] Add a **rerank node** — re-score results using a cross-encoder model
-- [ ] Add **memory** — persist chat history across queries using LangGraph checkpointers
-- [ ] Swap in **OpenAI embeddings** — set `OPENAI_API_KEY` and update `utils/embeddings.py`
-- [ ] Add a **web UI** — wrap the pipeline in a Streamlit or FastAPI interface
-
----
-
-<div align="center">
-
-Built step by step. Every line of output is real.
-
-</div>

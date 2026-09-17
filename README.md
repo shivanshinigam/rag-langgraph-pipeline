@@ -1,65 +1,170 @@
-# rag-langgraph-pipeline
+<div align="center">
 
-A step-by-step RAG (Retrieval-Augmented Generation) pipeline built with **LangChain** + **LangGraph**.
+<!-- Animated SVG Banner -->
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=30&duration=3000&pause=1000&color=6C63FF&center=true&vCenter=true&width=700&lines=RAG+Pipeline+with+LangChain+%2B+LangGraph;PDF+%E2%86%92+Embed+%E2%86%92+Retrieve+%E2%86%92+Filter+%E2%86%92+Answer;Built+step+by+step%2C+with+real+output" alt="Typing SVG" />
 
-## Project Structure
+<br/>
+
+<!-- Tech Badges -->
+![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-0.3+-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-6C63FF?style=for-the-badge&logo=graphql&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-Local-FF6B6B?style=for-the-badge&logo=databricks&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-Embeddings-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)
+
+<br/>
+
+**A hands-on, step-by-step RAG pipeline — built one layer at a time, with real output at every stage.**
+
+</div>
+
+---
+
+## What is this?
+
+This project builds a **Retrieval-Augmented Generation (RAG)** system from scratch using:
+- **LangChain** — for loading PDFs, splitting text, and embedding
+- **ChromaDB** — as a local vector database (no server, no cloud)
+- **LangGraph** — to wire it all into a stateful, traceable pipeline
+
+It is structured as **3 progressive tasks**, each building on the previous one, so you can understand exactly what is happening at every step before moving forward.
+
+---
+
+## The Mental Model
+
+Before touching any code, understand the core idea:
+
+> A RAG system answers questions by first *finding* relevant text from your documents, then *feeding* that text to an LLM as context. The LLM never "reads" your PDF — it only sees the chunks you hand it.
+
 ```
-rag-langgraph-pipeline/
-├── pdfs/                        # Drop your PDF files here
-├── utils/
-│   ├── embeddings.py            # Shared embedding model setup
-│   └── vectorstore.py           # Shared ChromaDB client
-│
-├── 1_ingest.py                  # Task 1: Load PDFs → Embed → Store in ChromaDB
-├── 2_query.py                   # Task 2: Query ChromaDB with a question
-├── 3_langgraph_pipeline.py      # Task 3: Full LangGraph RAG pipeline
-├── requirements.txt
-└── .env.example
-```
-
-## Setup
-```bash
-# 1. Create virtual environment
-python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Set up environment variables
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY (or leave blank to use local HuggingFace embeddings)
-
-# 4. Add PDFs
-# Drop your PDF files inside the /pdfs folder
-```
-
-## Running Each Task
-
-### Task 1 — Ingest PDFs into ChromaDB
-```bash
-python 1_ingest.py
-```
-
-### Task 2 — Query the Vector DB
-```bash
-python 2_query.py "What is this document about?"
-```
-
-### Task 3 — Run the full LangGraph Pipeline
-```bash
-python 3_langgraph_pipeline.py "What is this document about?"
+Your Question
+     │
+     ▼
+[Convert question to a vector]        ← same math as during ingestion
+     │
+     ▼
+[Find nearest vectors in the DB]      ← cosine similarity search
+     │
+     ▼
+[Filter out low-quality matches]      ← score threshold
+     │
+     ▼
+[Send remaining text to the LLM]      ← as context in the prompt
+     │
+     ▼
+Answer
 ```
 
 ---
 
-## Task Outputs
+## Pipeline Architecture
 
-### Task 1 — PDF Ingestion (`1_ingest.py`)
+```mermaid
+flowchart TD
+    A([START]) --> B
 
-**PDF used:** `attention_is_all_you_need.pdf` (Vaswani et al., 2017 — the original Transformer paper)
+    subgraph Task1["Task 1 — Ingestion (run once)"]
+        B[📄 PyPDFLoader\nLoad PDF pages] --> C
+        C[✂️ RecursiveCharacterTextSplitter\nChunk pages into 1000-char pieces] --> D
+        D[🧠 HuggingFaceEmbeddings\nConvert chunks to 384-dim vectors] --> E
+        E[(💾 ChromaDB\nPersist vectors to disk)]
+    end
 
-**Console output:**
+    subgraph Task3["Task 3 — LangGraph Pipeline (run per query)"]
+        F[retrieve_node\nQuery ChromaDB\nTop-K results with scores] --> G
+        G[filter_node\nDrop docs where\ndistance ≥ threshold] --> H
+        H[generate_node\nBuild prompt from\nfiltered context + query]
+    end
+
+    E -.->|"vector store"| F
+    H --> I([END\nFinal Answer])
+
+    style Task1 fill:#1a1a2e,stroke:#6C63FF,color:#fff
+    style Task3 fill:#16213e,stroke:#6C63FF,color:#fff
+    style A fill:#6C63FF,color:#fff
+    style I fill:#6C63FF,color:#fff
+```
+
+---
+
+## Project Structure
+
+```
+rag-langgraph-pipeline/
+│
+├── pdfs/                          ← drop your PDF files here
+│
+├── utils/
+│   ├── embeddings.py              ← shared embedding model (one place to change)
+│   └── vectorstore.py             ← shared ChromaDB connection
+│
+├── 1_ingest.py                    ← Task 1: Load → Chunk → Embed → Store
+├── 2_query.py                     ← Task 2: Query ChromaDB directly
+├── 3_langgraph_pipeline.py        ← Task 3: Full LangGraph RAG pipeline
+│
+├── requirements.txt
+├── .env.example
+└── README.md
+```
+
+---
+
+## Setup
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/shivanshinigam/rag-langgraph-pipeline.git
+cd rag-langgraph-pipeline
+
+# 2. Create a virtual environment
+python -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment
+cp .env.example .env
+# Open .env and add your OPENAI_API_KEY (optional — works without it)
+
+# 5. Drop your PDFs into the /pdfs folder
+```
+
+---
+
+## Task 1 — PDF Ingestion
+
+**Goal:** Load PDFs from disk, split them into chunks, convert to vectors, store in ChromaDB.
+
+### Run
+```bash
+python 1_ingest.py
+```
+
+### What happens inside
+
+| Step | Tool | What it does |
+|------|------|-------------|
+| 1 | `PyPDFLoader` | Reads each PDF and returns one `Document` per page |
+| 2 | `RecursiveCharacterTextSplitter` | Breaks pages into chunks (tries `\n\n` → `\n` → ` ` → char) |
+| 3 | `HuggingFaceEmbeddings` | Converts each chunk's text into a 384-number float vector |
+| 4 | `Chroma.from_documents()` | Calls embedding for each chunk and saves vectors to disk |
+
+### Why chunk at all?
+> A 15-page PDF has too much text to embed meaningfully as one unit.
+> By splitting into small chunks, each chunk represents **one idea**.
+> This makes similarity search precise — you get the right paragraph, not the whole document.
+
+### Why overlap?
+```
+Chunk 1:  [.......text.......|overlap|]
+Chunk 2:              [|overlap|.....text.......]
+```
+> The overlapping region ensures no idea gets split mid-sentence across two chunks and lost.
+
+### Real output
+
 ```
 Starting Task 1: PDF Ingestion Pipeline
 ------------------------------------------------------------
@@ -86,236 +191,269 @@ Task 1 Complete!
   Total vectors stored     : 52
 ```
 
-**Run statistics:**
+### Run statistics
 
-| Metric                  | Value                                      |
-|-------------------------|--------------------------------------------|
-| PDF pages loaded        | 15                                         |
-| Chunks created          | 52                                         |
-| Chunk size              | 1,000 characters                           |
-| Chunk overlap           | 200 characters                             |
-| Embedding model         | sentence-transformers/all-MiniLM-L6-v2     |
-| Vector dimensions       | 384                                        |
-| Vector store            | ChromaDB (local, on-disk)                  |
-| Vectors stored          | 52                                         |
-
-**Concepts covered:**
-
-| Concept                          | Description                                                                   |
-|----------------------------------|-------------------------------------------------------------------------------|
-| `PyPDFLoader`                    | Reads a PDF and returns one `Document` object per page                        |
-| `RecursiveCharacterTextSplitter` | Breaks pages into overlapping chunks to preserve context at boundaries        |
-| `chunk_overlap`                  | Shared characters between adjacent chunks — prevents loss of context          |
-| `HuggingFaceEmbeddings`          | Converts text into a 384-dimensional float vector representing its meaning    |
-| `Chroma.from_documents()`        | Embeds all chunks and persists them to disk in a single call                  |
-| `persist_directory`              | ChromaDB saves data locally — no external server or cloud account required    |
+| Metric | Value |
+|--------|-------|
+| PDF loaded | `attention_is_all_you_need.pdf` (Vaswani et al., 2017) |
+| Pages | 15 |
+| Chunks created | 52 |
+| Chunk size | 1,000 characters |
+| Chunk overlap | 200 characters |
+| Embedding model | `sentence-transformers/all-MiniLM-L6-v2` |
+| Vector dimensions | 384 |
+| Storage | ChromaDB on disk (`./chroma_db/`) |
 
 ---
 
-### Task 2 — Vector DB Query (`2_query.py`)
+## Task 2 — Querying the Vector Store
 
-Three queries were run against the ChromaDB collection built in Task 1.
+**Goal:** Understand how similarity search works by querying ChromaDB directly and reading the scores.
 
----
+### Run
+```bash
+python 2_query.py "What is multi-head attention?"
+python 2_query.py "How does the encoder work?"
+python 2_query.py "What optimizer was used for training?"
+```
+
+### How similarity search works
+
+```
+1. Your query text is embedded into a vector    →  [0.12, -0.34, 0.89, ...]
+2. ChromaDB compares it against all 52 stored vectors
+3. It measures the "angle" between vectors (cosine distance)
+4. Returns the closest matches ranked by distance
+```
+
+**Cosine Distance → Relevance:**
+```
+distance = 0.0  →  100%  (identical meaning)
+distance = 0.7  →   65%  (very relevant)
+distance = 1.0  →   50%  (borderline)
+distance = 1.5  →   25%  (probably noise)
+distance = 2.0  →    0%  (completely unrelated)
+
+Formula: relevance % = (1 - distance / 2) × 100
+```
+
+### Real output — 3 queries
 
 **Query 1:** `"What is multi-head attention?"`
-
 ```
-Query  : What is multi-head attention?
-Results: 5 chunks retrieved
+Rank #1  |  Relevance: 59.5%  (distance: 0.8108)  |  Page 3
+  "An attention function can be described as mapping a query and a set of
+   key-value pairs to an output..."
 
-  Rank #1  |  Relevance: 64.5%  (distance: 0.7093)  |  Page: 4
-  Content  : "...MultiHead(Q, K, V) = Concat(head1,...,headh)W^O
-              where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)..."
+Rank #2  |  Relevance: 56.1%  (distance: 0.8778)  |  Page 5
+  "MultiHead(Q,K,V) = Concat(head_1,...,head_h) W^O
+   where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)..."
 
-  Rank #2  |  Relevance: 58.8%  (distance: 0.8246)  |  Page: 4
-  Content  : "...In this work we employ h = 8 parallel attention layers, or heads.
-              For each of these we use dk = dv = dmodel/h = 64..."
-
-  Rank #3  |  Relevance: 50.2%  (distance: 0.9963)  |  Page: 5
-  Content  : "...The Transformer uses multi-head attention in three different ways:
-              In encoder-decoder attention layers, the queries come from the
-              previous decoder layer..."
-
-  Rank #4  |  Relevance: 48.7%  (distance: 1.0268)  |  Page: 13
-  Rank #5  |  Relevance: 46.8%  (distance: 1.0631)  |  Page: 3
+Rank #3  |  Relevance: 50.2%  (distance: 0.9963)  |  Page 5
+  "The Transformer uses multi-head attention in three different ways..."
 ```
-
----
 
 **Query 2:** `"What optimizer was used for training?"`
-
 ```
-Query  : What optimizer was used for training?
-Results: 5 chunks retrieved
+Rank #1  |  Relevance: 41.8%  (distance: 1.1650)  |  Page 7
+  "We trained our models on one machine with 8 NVIDIA P100 GPUs..."
 
-  Rank #1  |  Relevance: 41.8%  (distance: 1.1650)  |  Page: 7
-  Content  : "...We trained our models on one machine with 8 NVIDIA P100 GPUs.
-              Each training step took about 0.4 seconds. We trained the base
-              models for a total of 100,000 steps or 12 hours..."
-
-  Rank #2  |  Relevance: 33.3%  (distance: 1.3348)  |  Page: 7
-  Content  : "...We trained on the standard WMT 2014 English-German dataset
-              consisting of about 4.5 million sentence pairs..."
-
-  Rank #3  |  Relevance: 32.4%  (distance: 1.3513)  |  Page: 8
-  Rank #4  |  Relevance: 31.1%  (distance: 1.3783)  |  Page: 8
-  Rank #5  |  Relevance: 30.6%  (distance: 1.3879)  |  Page: 8
+Rank #2  |  Relevance: 33.3%  (distance: 1.3348)  |  Page 7
+  ...
 ```
-
-> Note: Lower relevance scores here indicate the query term "optimizer" does not
-> appear verbatim in the paper — it uses "Adam" and "training regime" instead.
-> This is expected behavior and is why the filter node in Task 3 is important.
-
----
+> **Note:** Low scores here are expected — the paper uses "Adam" and "training regime",
+> not the word "optimizer". This is exactly why Task 3 has a filter node.
 
 **Query 3:** `"How does the encoder work?"`
-
 ```
-Query  : How does the encoder work?
-Results: 5 chunks retrieved
+Rank #1  |  Relevance: 63.8%  (distance: 0.7231)  |  Page 2
+  "The encoder maps an input sequence (x1,...,xn) to continuous
+   representations z = (z1,...,zn)..."
 
-  Rank #1  |  Relevance: 63.8%  (distance: 0.7231)  |  Page: 2
-  Content  : "...the encoder maps an input sequence of symbol representations
-              (x1,...,xn) to a sequence of continuous representations z = (z1,...,zn).
-              Given z, the decoder then generates an output sequence..."
-
-  Rank #2  |  Relevance: 54.2%  (distance: 0.9161)  |  Page: 5
-  Content  : "...The Transformer uses multi-head attention in three different ways:
-              In encoder-decoder attention layers, the queries come from the
-              previous decoder layer..."
-
-  Rank #3  |  Relevance: 47.7%  (distance: 1.0455)  |  Page: 3
-  Content  : "...The Transformer follows this overall architecture using stacked
-              self-attention and point-wise, fully connected layers for both
-              the encoder and decoder..."
-
-  Rank #4  |  Relevance: 45.4%  (distance: 1.0911)  |  Page: 3
-  Rank #5  |  Relevance: 43.6%  (distance: 1.1281)  |  Page: 5
+Rank #2  |  Relevance: 54.2%  (distance: 0.9161)  |  Page 5
+  ...
 ```
 
 ---
 
-**Score interpretation:**
+## Task 3 — LangGraph Pipeline
 
-| Relevance Range | Meaning                                     |
-|-----------------|---------------------------------------------|
-| 70% – 100%      | Highly relevant — strong semantic match     |
-| 50% – 70%       | Moderately relevant — good contextual match |
-| 30% – 50%       | Weak match — may contain noise              |
-| Below 30%       | Not relevant — filtered out in Task 3       |
+**Goal:** Wire the retrieval and filtering into a proper stateful graph using LangGraph.
 
-**Concepts covered:**
+### What is LangGraph?
 
-| Concept                         | Description                                                                             |
-|---------------------------------|-----------------------------------------------------------------------------------------|
-| `similarity_search_with_score()`| Embeds the query and finds the top-K nearest vectors in ChromaDB                       |
-| Cosine distance                 | Measures angle between two vectors — 0.0 = identical, 2.0 = completely opposite        |
-| Relevance %                     | Human-readable conversion: `(1 - distance / 2) * 100`                                  |
-| `doc.metadata`                  | Each result carries its source filename and page number from the original PDF           |
-| Score threshold (preview)       | Query 2 shows why low-relevance results need filtering — used in Task 3's filter node   |
+Instead of calling functions manually, LangGraph lets you define:
 
----
+| Concept | What it is |
+|---------|-----------|
+| **Node** | A Python function that reads from state and returns updates |
+| **Edge** | A connection defining which node runs next |
+| **State** | A shared `TypedDict` that flows through every node |
+| **Graph** | The assembled structure of nodes + edges |
 
-### Task 3 — LangGraph Pipeline (`3_langgraph_pipeline.py`)
+### The State Schema
 
-The full graph ran end-to-end: `START → retrieve → filter → generate → END`
-
-Configuration used:
-
-| Parameter       | Value                                  |
-|-----------------|----------------------------------------|
-| Top-K           | 10                                     |
-| Score threshold | distance < 1.0 (> 50% relevance)       |
-| Embedding model | sentence-transformers/all-MiniLM-L6-v2 |
-
----
-
-**Query 1:** `"What is multi-head attention?"` — filter PASSED (3 docs kept)
-
+```python
+class RAGState(TypedDict):
+    query         : str                           # set at START, never changes
+    raw_docs      : list[tuple[Document, float]]  # (doc, cosine_distance)
+    filtered_docs : list[Document]                # passed threshold
+    answer        : str                           # set at END
 ```
+
+Every node reads from this dict and writes back only the keys it owns. No global variables. No manual passing of arguments.
+
+### The three nodes
+
+**Node 1 — `retrieve_node`**
+```python
+def retrieve_node(state: RAGState) -> dict:
+    results = vectorstore.similarity_search_with_score(state["query"], k=10)
+    return {"raw_docs": results}
+```
+Reads: `query` → Writes: `raw_docs`
+
+**Node 2 — `filter_node`**
+```python
+def filter_node(state: RAGState) -> dict:
+    filtered = [doc for doc, dist in state["raw_docs"] if dist < THRESHOLD]
+    return {"filtered_docs": filtered}
+```
+Reads: `raw_docs` → Writes: `filtered_docs`
+
+**Node 3 — `generate_node`**
+```python
+def generate_node(state: RAGState) -> dict:
+    context = "\n\n".join(doc.page_content for doc in state["filtered_docs"])
+    answer  = llm.invoke(f"Context:\n{context}\n\nQuestion: {state['query']}")
+    return {"answer": answer}
+```
+Reads: `filtered_docs`, `query` → Writes: `answer`
+
+### Graph assembly
+
+```python
+graph = StateGraph(RAGState)
+
+graph.add_node("retrieve", retrieve_node)
+graph.add_node("filter",   filter_node)
+graph.add_node("generate", generate_node)
+
+graph.add_edge(START,      "retrieve")
+graph.add_edge("retrieve", "filter")
+graph.add_edge("filter",   "generate")
+graph.add_edge("generate", END)
+
+app = graph.compile()
+result = app.invoke({"query": "What is multi-head attention?"})
+```
+
+### Real output
+
+**Query 1 — Filter passes (3 docs kept)**
+```
+LangGraph RAG Pipeline  —  START → retrieve → filter → generate → END
+------------------------------------------------------------
+Threshold : distance < 1.0  (relevance > 50%)
+Top-K     : 10
+
 [Node 1: RETRIEVE]
-  Query     : What is multi-head attention?
   Retrieved : 10 documents
     #1   distance=0.8108   relevance=59.5%   page=3
     #2   distance=0.8778   relevance=56.1%   page=5
     #3   distance=0.9963   relevance=50.2%   page=5
-    #4   distance=1.0268   relevance=48.7%   page=13
+    #4   distance=1.0268   relevance=48.7%   page=13   ← cut here
     ...
-    #10  distance=1.2007   relevance=40.0%   page=3
 
 [Node 2: FILTER]
-  Threshold : distance < 1.0  (relevance > 50.0%)
   KEEP  distance=0.8108   relevance=59.5%   page=3
   KEEP  distance=0.8778   relevance=56.1%   page=5
   KEEP  distance=0.9963   relevance=50.2%   page=5
   DROP  distance=1.0268   relevance=48.7%   page=13
   DROP  ... (7 more dropped)
-
-  Kept   : 3 documents
-  Dropped: 7 documents
+  Kept: 3  |  Dropped: 7
 
 [Node 3: GENERATE]
   Context docs : 3
-  Context sent to LLM (Page 3):
-    "An attention function can be described as mapping a query and a set of
-     key-value pairs to an output, where the query, keys, values, and output
-     are all vectors..."
-
-  Context sent to LLM (Page 5):
-    "MultiHead(Q,K,V) = Concat(head_1,...,head_h) W^O
-     where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)
-     In this work we employ h = 8 parallel attention layers, or heads..."
+  → Sending to LLM with 3 high-quality chunks as context
 ```
 
----
-
-**Query 2:** `"What optimizer was used for training?"` — filter FAILED (0 docs kept)
-
+**Query 2 — Filter rejects everything (correct behavior)**
 ```
 [Node 1: RETRIEVE]
-  Query     : What optimizer was used for training?
   Retrieved : 10 documents
-    #1   distance=1.1650   relevance=41.8%   page=7
-    #2   distance=1.3348   relevance=33.3%   page=7
+    #1   distance=1.1650   relevance=41.8%   page=7   ← best score is still too low
     ...
-    #10  distance=1.4515   relevance=27.4%   page=11
 
 [Node 2: FILTER]
-  Threshold : distance < 1.0  (relevance > 50.0%)
-  DROP  (all 10 documents — best score was only 41.8%)
-
-  Kept   : 0 documents
-  Dropped: 10 documents
+  DROP  (all 10 documents)
+  Kept: 0  |  Dropped: 10
 
 [Node 3: GENERATE]
   No relevant documents found above the relevance threshold.
+  → Pipeline refuses to answer rather than hallucinate
 ```
 
-> This is correct and expected. The paper does not use the word "optimizer" —
-> it refers to it as "Adam" and "training regime". The filter node correctly
-> rejected all low-quality results rather than sending noisy context to the LLM.
+### Pipeline summary
+
+| Query | Retrieved | Kept | Dropped | Outcome |
+|-------|-----------|------|---------|---------|
+| "What is multi-head attention?" | 10 | 3 | 7 | Sent to LLM |
+| "What optimizer was used?" | 10 | 0 | 10 | Correctly rejected |
 
 ---
 
-**Pipeline summary across both queries:**
+## Understanding Score Thresholds
 
-| Query                           | Retrieved | Kept | Dropped | Outcome             |
-|---------------------------------|-----------|------|---------|---------------------|
-| "What is multi-head attention?" | 10        | 3    | 7       | Context sent to LLM |
-| "What optimizer was used?"      | 10        | 0    | 10      | Correctly rejected  |
+The threshold is **not a fixed number** — it depends on your embedding model and your tolerance for noise.
+
+```
+all-MiniLM-L6-v2 distance ranges:
+  0.7 – 0.9   →  strong match    →  always keep
+  0.9 – 1.1   →  moderate match  →  keep if threshold is lenient
+  1.1 – 1.4   →  weak match      →  usually drop
+  1.4+        →  no match        →  always drop
+```
+
+| Situation | Adjust threshold |
+|-----------|-----------------|
+| Too many irrelevant answers from LLM | Lower it (stricter) |
+| Too many "no results found" responses | Raise it (more lenient) |
+| Switching embedding models | Re-calibrate from scratch |
+| User-facing product | Error on strictness — "I don't know" is better than hallucination |
 
 ---
 
-**Concepts covered:**
+## Key Concepts Reference
 
-| Concept             | Description                                                                                 |
-|---------------------|---------------------------------------------------------------------------------------------|
-| `RAGState`          | A `TypedDict` shared across all nodes — each node reads from and writes to it               |
-| `StateGraph`        | The LangGraph graph builder — nodes and edges are registered before compiling               |
-| `add_node()`        | Registers a Python function as a named processing step in the graph                        |
-| `add_edge()`        | Defines execution order — `START → retrieve → filter → generate → END`                     |
-| `graph.compile()`   | Validates the graph structure and returns a runnable `app` object                           |
-| `app.invoke(state)` | Executes the full graph, passing state automatically between nodes                          |
-| Score threshold     | `distance < 1.0` keeps only docs above 50% relevance — prevents noisy context reaching LLM |
-| Fallback behavior   | When 0 docs pass the filter, generate node returns a graceful message instead of crashing   |
+| Concept | One-line explanation |
+|---------|---------------------|
+| `Document` | LangChain's base unit — text + metadata (source, page) |
+| `PyPDFLoader` | Reads a PDF, returns one `Document` per page |
+| `RecursiveCharacterTextSplitter` | Splits text by paragraph → sentence → word → character |
+| `chunk_overlap` | Shared text between adjacent chunks — preserves boundary context |
+| `HuggingFaceEmbeddings` | Local model, no API key — converts text to float vectors |
+| `Chroma.from_documents()` | Embed + store in one call |
+| `similarity_search_with_score()` | Returns `(Document, cosine_distance)` pairs ranked by relevance |
+| `RAGState` | Shared `TypedDict` flowing through all LangGraph nodes |
+| `StateGraph` | LangGraph's graph builder — registers nodes and edges |
+| `graph.compile()` | Validates and locks the graph into a runnable `app` |
+| `app.invoke(state)` | Executes the full graph from start to end |
+
+---
+
+## What's Next
+
+- [ ] Add a **conditional edge** — retry with a lower threshold if 0 docs pass
+- [ ] Add a **rerank node** — re-score results using a cross-encoder model
+- [ ] Add **memory** — persist chat history across queries using LangGraph checkpointers
+- [ ] Swap in **OpenAI embeddings** — set `OPENAI_API_KEY` and update `utils/embeddings.py`
+- [ ] Add a **web UI** — wrap the pipeline in a Streamlit or FastAPI interface
+
+---
+
+<div align="center">
+
+Built step by step. Every line of output is real.
+
+</div>

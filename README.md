@@ -109,3 +109,108 @@ Task 1 Complete!
 | `HuggingFaceEmbeddings`          | Converts text into a 384-dimensional float vector representing its meaning    |
 | `Chroma.from_documents()`        | Embeds all chunks and persists them to disk in a single call                  |
 | `persist_directory`              | ChromaDB saves data locally — no external server or cloud account required    |
+
+---
+
+### Task 2 — Vector DB Query (`2_query.py`)
+
+Three queries were run against the ChromaDB collection built in Task 1.
+
+---
+
+**Query 1:** `"What is multi-head attention?"`
+
+```
+Query  : What is multi-head attention?
+Results: 5 chunks retrieved
+
+  Rank #1  |  Relevance: 64.5%  (distance: 0.7093)  |  Page: 4
+  Content  : "...MultiHead(Q, K, V) = Concat(head1,...,headh)W^O
+              where head_i = Attention(QW^Q_i, KW^K_i, VW^V_i)..."
+
+  Rank #2  |  Relevance: 58.8%  (distance: 0.8246)  |  Page: 4
+  Content  : "...In this work we employ h = 8 parallel attention layers, or heads.
+              For each of these we use dk = dv = dmodel/h = 64..."
+
+  Rank #3  |  Relevance: 50.2%  (distance: 0.9963)  |  Page: 5
+  Content  : "...The Transformer uses multi-head attention in three different ways:
+              In encoder-decoder attention layers, the queries come from the
+              previous decoder layer..."
+
+  Rank #4  |  Relevance: 48.7%  (distance: 1.0268)  |  Page: 13
+  Rank #5  |  Relevance: 46.8%  (distance: 1.0631)  |  Page: 3
+```
+
+---
+
+**Query 2:** `"What optimizer was used for training?"`
+
+```
+Query  : What optimizer was used for training?
+Results: 5 chunks retrieved
+
+  Rank #1  |  Relevance: 41.8%  (distance: 1.1650)  |  Page: 7
+  Content  : "...We trained our models on one machine with 8 NVIDIA P100 GPUs.
+              Each training step took about 0.4 seconds. We trained the base
+              models for a total of 100,000 steps or 12 hours..."
+
+  Rank #2  |  Relevance: 33.3%  (distance: 1.3348)  |  Page: 7
+  Content  : "...We trained on the standard WMT 2014 English-German dataset
+              consisting of about 4.5 million sentence pairs..."
+
+  Rank #3  |  Relevance: 32.4%  (distance: 1.3513)  |  Page: 8
+  Rank #4  |  Relevance: 31.1%  (distance: 1.3783)  |  Page: 8
+  Rank #5  |  Relevance: 30.6%  (distance: 1.3879)  |  Page: 8
+```
+
+> Note: Lower relevance scores here indicate the query term "optimizer" does not
+> appear verbatim in the paper — it uses "Adam" and "training regime" instead.
+> This is expected behavior and is why the filter node in Task 3 is important.
+
+---
+
+**Query 3:** `"How does the encoder work?"`
+
+```
+Query  : How does the encoder work?
+Results: 5 chunks retrieved
+
+  Rank #1  |  Relevance: 63.8%  (distance: 0.7231)  |  Page: 2
+  Content  : "...the encoder maps an input sequence of symbol representations
+              (x1,...,xn) to a sequence of continuous representations z = (z1,...,zn).
+              Given z, the decoder then generates an output sequence..."
+
+  Rank #2  |  Relevance: 54.2%  (distance: 0.9161)  |  Page: 5
+  Content  : "...The Transformer uses multi-head attention in three different ways:
+              In encoder-decoder attention layers, the queries come from the
+              previous decoder layer..."
+
+  Rank #3  |  Relevance: 47.7%  (distance: 1.0455)  |  Page: 3
+  Content  : "...The Transformer follows this overall architecture using stacked
+              self-attention and point-wise, fully connected layers for both
+              the encoder and decoder..."
+
+  Rank #4  |  Relevance: 45.4%  (distance: 1.0911)  |  Page: 3
+  Rank #5  |  Relevance: 43.6%  (distance: 1.1281)  |  Page: 5
+```
+
+---
+
+**Score interpretation:**
+
+| Relevance Range | Meaning                                     |
+|-----------------|---------------------------------------------|
+| 70% – 100%      | Highly relevant — strong semantic match     |
+| 50% – 70%       | Moderately relevant — good contextual match |
+| 30% – 50%       | Weak match — may contain noise              |
+| Below 30%       | Not relevant — filtered out in Task 3       |
+
+**Concepts covered:**
+
+| Concept                         | Description                                                                             |
+|---------------------------------|-----------------------------------------------------------------------------------------|
+| `similarity_search_with_score()`| Embeds the query and finds the top-K nearest vectors in ChromaDB                       |
+| Cosine distance                 | Measures angle between two vectors — 0.0 = identical, 2.0 = completely opposite        |
+| Relevance %                     | Human-readable conversion: `(1 - distance / 2) * 100`                                  |
+| `doc.metadata`                  | Each result carries its source filename and page number from the original PDF           |
+| Score threshold (preview)       | Query 2 shows why low-relevance results need filtering — used in Task 3's filter node   |
